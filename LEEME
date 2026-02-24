@@ -1,0 +1,58 @@
+PRÁCTICA 1 - STRING ART
+
+1. DESCRIPCIÓN GENERAL DEL DIRECTORIO Y ORGANIZACIÓN
+El directorio contiene una implementación en C++ para generar de manera aproximada una versión de esta practica a partir de una imagen. 
+
+La organización de los archivos es la siguiente:
+* LEEME: Este archivo, contiene las instrucciones e información general.
+* Memoria.pdf: Informe con la presentación, análisis de resultados (máximo 3 páginas). Nombres, apellidos y NIA de cada miembro del grupo de práctica están indicados de manera interna.
+* ejecutar.sh: Shell script automatizado que realiza la compilación y ejecución del programa sobre las distintas variantes e imágenes de prueba. Diseñado para funcionar en lab000.
+* pruebas/: Subdirectorio que contiene los ficheros auxiliares de entrada necesarios (imágenes PGM) para ejecutar las pruebas.
+* bench_resultados/: Directorio temporal creado automáticamente para depositar los resultados de las pruebas producidos.
+* main_bench.cpp: Archivo fuente con el núcleo del algoritmo y las distintas heurísticas elegidas mediante directivas condicionales. 
+* calc_mse.cpp: Programa para calcular el error cuadrático medio (MSE) para evaluar cuán cerca está el resultado final de la imagen original.
+* image_loader.h y image_loader.cpp: Lectura y escritura de imágenes en los formatos especificados para P2/P5.
+* geometry.h: Creador de las coordenadas geográficas de los anclajes y cálculo en mapa del trabajo de hilos.
+
+2. INSTRUCCIONES DE COMPILACIÓN Y EJECUCIÓN (AUTOMATIZADO)
+
+Se ha proporcionado un script en bash (ejecutar.sh) programado para automatizar la compilación y la ejecución que no dispone de menús interactivos, ya que todas las interacciones están controladas por llamada (argumentos). Éste evalúa combinaciones activando directivas del precompilador para emitir una comparativa. 
+
+Para repetir de forma automática exactamente todas las pruebas de nuestro trabajo, basta ejecutar el script por defecto sin parámetros:
+
+./ejecutar.sh
+
+El script se encargará de:
+1. Compilar el programa evaluador calc_mse.
+2. Compilar secuencialmente, activando los parámetros condicionales, múltiples versiones del algoritmo guardando los compilados en un entorno limpio /tmp/bench_bins.
+3. Detectar todos los ficheros de imagen que existan dentro del directorio de entrada que se llama pruebas/ y lanzar la prueba automatizada sobre cada uno de ellos para cada variante existente.
+4. Volcar y guardar las imágenes resultantes en la carpeta bench_resultados/.
+5. Mostrar por terminal una serie comparativa detallando Variante del Algoritmo, Imagen evaluada, Tiempo transcurrido (ms), Hilos trazados y reducción MSE calculada con calc_mse.
+
+Opciones Extras permitidas en la llamada:
+Si se desea modificar la ejecución a un entorno particular se pueden usar flags:
+* -c <n>: Número total de clavos alrededor de la imagen (default: 300)
+* -H <n>: Número de hilos de cálculo totales permitidos (default: 5000)
+* -s <n>: Número top-S de análisis para el algoritmo Min-Heap (default: 20)
+* -d <dir>: Indica donde buscar las imágenes (default: pruebas/)
+* -v <variante>: Se restringe la ejecución a variantes concretas: v_base, v_gradient, v_threads, v_all, etc.
+* -h: Impresión y salida detallada de todos los parámetros de ejecución.
+
+3. LISTADOS DEL CÓDIGO DEBIDAMENTE COMENTADOS (GUÍA DE NAVEGACIÓN)
+El código ha sido refactorizado con el objetivo de separar la lógica permitiendo navegar adecuadamente cada una de las partes de la práctica. En todos los archivos el código está debidamente documentado usando bloques descriptivos y comentarios en línea.
+
+Núcleo algorítmico y ejecución: main_bench.cpp
+Representa la operativa real de toda la práctica. Alberga el algoritmo greedy voraz de dibujado sobre el canvas y en él recae toda la funcionalidad con sus cuatro componentes heurísticos variables por compilación:
+1. USE_WEIGHTED_NAIL: Aislamiento probabilístico del clavo inicial usando nivel de brillo alrededor para empezar de forma focalizada. (Aumenta contrastes primarios).
+2. USE_GRADIENT_MAP: Ponderación a nivel de píxel penalizando los trazados erróneos por zonas planas y recompensando fuertemente el trazo perpendicular por texturas al medir las diferencias centrales (horizontal/vertical).
+3. USE_TOP_S_HEAP: Integración de un Min-Heap de tamaño S (std::priority_queue). Reduce el coste de inserción de forma que seleccionamos los S mejores prospectos para candidatos de trazado garantizando tiempo asintótico O(N log S) frente a las ordenaciones O(N log N).
+4. USE_MULTITHREADING: Explotación de los recursos hardware diviendo geométricamente el mapeo candidato a cada hilo del procesador std::thread, optimizando y rebajando linealmente en fracciones el altísimo tiempo de simular hilos en el Canvas.
+
+Métrica y Utilidad de Benchmarking: calc_mse.cpp
+Contiene únicamente el evaluador de error medio y una interfaz de carga como su propio programa main(). Se abstrajo su presencia para separar la responsabilidades puramente métricas, de modo que ejecutar.sh lo usa con la imagen baseline de entrada y nuestro arte producido final, evaluando el MSE sin penalizar el código de dibujo subyacente.
+
+Carga de Datos I/O: image_loader.h y image_loader.cpp
+Soporte lector/escritor y módulo parseador para lidiar con el formato base PGM ASCII (P2 / P5). Gestionan los metadatos y construyen la matriz estructurada central Imagen.
+
+Mapeado Geométrico Espacial: geometry.h
+Posee la matemática del algoritmo inicial de dibujo circular proporcionando un vector std::vector<Punto> repartiendo uniformemente los clavos limitando la acción a una circunferencia central según las medidas de la matriz evadiendo trazados fuera de margen que causarían Segmentation Faults o escrituras superpuestas nulas. A él acude main_bench.cpp al inicio de cada iteración.
